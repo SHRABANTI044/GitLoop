@@ -8,6 +8,7 @@ from app.models.task import Task
 from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.dependency import Dependency
+from app.models.analyzer_report import AnalyzerReport
 
 __all__ = [
     "User",
@@ -20,4 +21,5 @@ __all__ = [
     "Conversation",
     "Message",
     "Dependency",
+    "AnalyzerReport",
 ]

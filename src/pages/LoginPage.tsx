@@ -10,7 +10,7 @@ import { AuthAPI, AuthError, EMAIL_RE } from "../lib/auth";
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, refreshConnection } = useAuth();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,12 +25,6 @@ export default function LoginPage() {
 
   const from = (location.state as { from?: string } | null)?.from ?? "/dashboard";
 
-  const routeAfterAuth = async () => {
-    const status = await AuthAPI.connectionStatus((await AuthAPI.me())?.id ?? "");
-    if (!status.connected) navigate("/connect-github", { replace: true });
-    else navigate(from, { replace: true });
-  };
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setBanner(null);
@@ -42,9 +36,8 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      await login(email, password, remember);
-      setBanner({ type: "success", message: "Signed in successfully. Checking your GitHub connection…" });
-      await routeAfterAuth();
+      const { githubConnected } = await login(email, password, remember);
+      navigate(githubConnected ? from : "/connect-github", { replace: true });
     } catch (err) {
       setBanner({ type: "error", message: err instanceof Error ? err.message : "Sign in failed. Please try again." });
     } finally {

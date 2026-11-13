@@ -11,6 +11,7 @@ import GithubCallbackPage from "./pages/GithubCallbackPage";
 import DashboardLayout from "./components/dashboard/DashboardLayout";
 import OverviewPage from "./pages/dashboard/OverviewPage";
 import RepositoriesPage from "./pages/dashboard/RepositoriesPage";
+import AnalyzerPage from "./pages/dashboard/AnalyzerPage";
 import AssistantPage from "./pages/dashboard/AssistantPage";
 import TasksPage from "./pages/dashboard/TasksPage";
 import DependenciesPage from "./pages/dashboard/DependenciesPage";
@@ -121,6 +122,7 @@ export default function App() {
           >
             <Route index element={<OverviewPage />} />
             <Route path="repositories" element={<RepositoriesPage />} />
+            <Route path="analyzer" element={<AnalyzerPage />} />
             <Route path="assistant" element={<AssistantPage />} />
             <Route path="tasks" element={<TasksPage />} />
             <Route path="dependencies" element={<DependenciesPage />} />

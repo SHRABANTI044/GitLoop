@@ -23,7 +23,3 @@ dist/
 # Dev server logs
 *.log
 *.err
-
-# Stray config scripts
-.gitignoreemprunc.py
-.gitignoreemprunc.pyrunc.py

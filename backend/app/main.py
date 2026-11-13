@@ -7,6 +7,7 @@ from sqlalchemy import text
 from app.config import settings
 from app.database import Base, engine
 from app.routes.ai_assistant import router as ai_assistant_router
+from app.routes.analyzer import router as analyzer_router
 from app.routes.analytics import router as analytics_router
 from app.routes.auth import router as auth_router
 from app.routes.dashboard import router as dashboard_router
@@ -38,6 +39,7 @@ app.include_router(tasks_router, prefix="/api")
 app.include_router(dependencies_router, prefix="/api")
 app.include_router(analytics_router, prefix="/api")
 app.include_router(ai_assistant_router, prefix="/api")
+app.include_router(analyzer_router, prefix="/api")
 app.include_router(voice_router, prefix="/api")
 app.include_router(sync_router, prefix="/api")
 

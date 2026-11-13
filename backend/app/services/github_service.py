@@ -96,6 +96,29 @@ def upsert_repository(db: Session, user_id: str, payload: dict[str, object]) -> 
     return repo
 
 
+def synchronize_user_repositories(db: Session, user_id: str, payloads: list[dict[str, object]]) -> list[Repository]:
+    existing = {
+        repo.github_repo_id: repo
+        for repo in db.query(Repository).filter(Repository.user_id == user_id).all()
+    }
+    synchronized: list[Repository] = []
+    for payload in payloads:
+        github_repo_id = str(payload["github_repo_id"])
+        repo = existing.get(github_repo_id)
+        if repo is None:
+            repo = Repository(user_id=user_id, **payload)
+            db.add(repo)
+            existing[github_repo_id] = repo
+        else:
+            for field, value in payload.items():
+                setattr(repo, field, value)
+        synchronized.append(repo)
+    db.commit()
+    for repo in synchronized:
+        db.refresh(repo)
+    return synchronized
+
+
 def select_repositories(db: Session, user_id: str, repository_ids: list[str]) -> list[Repository]:
     repos = db.query(Repository).filter(Repository.user_id == user_id).all()
     for repo in repos:

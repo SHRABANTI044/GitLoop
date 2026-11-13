@@ -1,21 +1,24 @@
 ﻿from __future__ import annotations
 
+from datetime import datetime, timezone
+
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.config import settings
-
 from app.database import get_db
-from app.models.github_connection import GitHubConnection
+from app.github.client import list_user_repositories
 from app.models.repository import Repository
 from app.models.user import User
 from app.routes.auth import get_current_user
-from app.schemas.github import GitHubRepositoryOut, RepositorySelectionRequest
+from app.schemas.github import GitHubRepositoryOut, GitHubSyncOut, RepositorySelectionRequest
 from app.services.github_service import (
     disconnect_connection,
+    get_decrypted_access_token,
     get_connection_status,
     list_repositories_for_user,
     select_repositories,
+    synchronize_user_repositories,
 )
 
 router = APIRouter(prefix="/github", tags=["github"])
@@ -37,11 +40,59 @@ def select_repository(payload: RepositorySelectionRequest, current_user: User = 
     return {"selected": len(repos), "repository_ids": [repo.id for repo in repos]}
 
 
-@router.post("/sync")
-def sync_github(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict[str, str]:
-    if not db.query(GitHubConnection).filter(GitHubConnection.user_id == current_user.id).first():
-        raise HTTPException(status_code=404, detail="GitHub account not connected")
-    return {"status": "synchronized"}
+@router.post("/sync", response_model=GitHubSyncOut)
+async def sync_github(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict[str, object]:
+    access_token = get_decrypted_access_token(db, current_user.id)
+    try:
+        github_repositories = await list_user_repositories(access_token)
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"GitHub rejected the repository request (HTTP {exc.response.status_code}). Reconnect GitHub and try again.",
+        ) from exc
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not reach GitHub to load repositories. Please try again.",
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="GitHub returned an invalid repository response. Please try again.",
+        ) from exc
+
+    now = datetime.now(timezone.utc)
+    payloads: list[dict[str, object]] = []
+    for repository in github_repositories:
+        repository_id = repository.get("id")
+        name = repository.get("name")
+        full_name = repository.get("full_name")
+        if repository_id is None or not isinstance(name, str) or not isinstance(full_name, str):
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="GitHub returned a repository with invalid metadata.",
+            )
+        payloads.append(
+            {
+                "github_repo_id": str(repository_id),
+                "name": name,
+                "full_name": full_name,
+                "description": repository.get("description"),
+                "default_branch": repository.get("default_branch"),
+                "visibility": repository.get("visibility")
+                or ("private" if repository.get("private") else "public"),
+                "primary_language": repository.get("language"),
+                "repository_url": repository.get("html_url"),
+                "last_synchronized_at": now,
+            }
+        )
+
+    synchronized = synchronize_user_repositories(db, current_user.id, payloads)
+    return {
+        "status": "synchronized",
+        "updated": len(synchronized),
+        "repositories": synchronized,
+    }
 
 
 @router.delete("/disconnect")

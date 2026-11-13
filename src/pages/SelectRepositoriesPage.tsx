@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Search, FolderGit2, Lock, Globe, Clock3, CheckCircle2, Loader2, LogOut, ArrowRight, Inbox } from "lucide-react";
 import Logo from "../components/Logo";
@@ -34,14 +34,16 @@ export default function SelectRepositoriesPage() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [banner, setBanner] = useState<{ type: "error" | "success"; message: string } | null>(null);
+  const syncStarted = useRef(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || syncStarted.current) return;
+    syncStarted.current = true;
     (async () => {
       try {
-        const list = await AuthAPI.repositories(user.id);
-        setRepos(list);
-        setSelected(new Set(list.filter((r) => r.selected).map((r) => r.id)));
+        const result = await AuthAPI.syncRepositories(user.id);
+        setRepos(result.repos);
+        setSelected(new Set(result.repos.filter((r) => r.selected).map((r) => r.id)));
       } catch (err) {
         setBanner({ type: "error", message: err instanceof Error ? err.message : "Could not load repositories." });
       } finally {

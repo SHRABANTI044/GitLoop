@@ -52,6 +52,21 @@ async function authedFetch(path: string, init?: RequestInit) {
   });
 }
 
+function mapRepository(r: any, userId: string): Repository {
+  return {
+    id: r.id,
+    userId,
+    githubRepoId: r.github_repo_id ?? r.githubRepoId,
+    name: r.name,
+    fullName: r.full_name ?? r.fullName,
+    description: r.description ?? null,
+    language: r.primary_language ?? r.language ?? null,
+    visibility: r.visibility ?? "public",
+    lastUpdated: r.last_synchronized_at ?? r.lastUpdated ?? new Date().toISOString(),
+    selected: !!r.selected,
+  };
+}
+
 export const AuthAPI = {
   async signup(payload: { fullName: string; email: string; password: string }): Promise<User> {
     const res = await apiFetch("/auth/signup", { method: "POST", body: JSON.stringify({ full_name: payload.fullName, email: payload.email, password: payload.password }) });
@@ -88,18 +103,7 @@ export const AuthAPI = {
   },
   async repositories(userId: string): Promise<Repository[]> {
     const res = await authedFetch(`/github/repositories`);
-    return (res || []).map((r: any) => ({
-      id: r.id,
-      userId,
-      githubRepoId: r.github_repo_id ?? r.githubRepoId,
-      name: r.name,
-      fullName: r.full_name ?? r.fullName,
-      description: r.description ?? null,
-      language: r.primary_language ?? r.language ?? null,
-      visibility: r.visibility ?? "public",
-      lastUpdated: r.last_synchronized_at ?? r.lastUpdated ?? new Date().toISOString(),
-      selected: !!r.selected,
-    }));
+    return (res || []).map((r: any) => mapRepository(r, userId));
   },
   async selectRepositories(_userId: string, ids: string[]): Promise<void> {
     await authedFetch(`/github/repositories/select`, { method: "POST", body: JSON.stringify({ repository_ids: ids }) });
@@ -118,9 +122,9 @@ export const AuthAPI = {
     return { connected: status.connected, username: status.username };
   },
   async syncRepositories(userId: string): Promise<{ syncedAt: string; updated: number; repos: Repository[] }> {
-    await authedFetch(`/github/sync`, { method: "POST" });
-    const repos = await this.repositories(userId);
-    return { syncedAt: new Date().toISOString(), updated: repos.length, repos };
+    const result = await authedFetch(`/github/sync`, { method: "POST" });
+    const repos = (result.repositories || []).map((repository: any) => mapRepository(repository, userId));
+    return { syncedAt: new Date().toISOString(), updated: result.updated, repos };
   },
 };
 

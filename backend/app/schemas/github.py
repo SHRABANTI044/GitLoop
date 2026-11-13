@@ -42,3 +42,9 @@ class GitHubRepositoryOut(BaseModel):
 
 class RepositorySelectionRequest(BaseModel):
     repository_ids: list[str]
+
+
+class GitHubSyncOut(BaseModel):
+    status: str
+    updated: int
+    repositories: list[GitHubRepositoryOut]

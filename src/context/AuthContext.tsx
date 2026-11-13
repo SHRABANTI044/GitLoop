@@ -7,7 +7,7 @@ interface AuthState {
   githubConnected: boolean;
   githubUsername: string | null;
   refreshConnection: () => Promise<void>;
-  login: (email: string, password: string, remember: boolean) => Promise<User>;
+  login: (email: string, password: string, remember: boolean) => Promise<{ user: User; githubConnected: boolean }>;
   signup: (fullName: string, email: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
   setUser: (u: User | null) => void;
@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const status = await AuthAPI.connectionStatus(u.id);
     setGithubConnected(status.connected);
     setGithubUsername(status.username);
-    return u;
+    return { user: u, githubConnected: status.connected };
   }, []);
 
   const signup = useCallback(async (fullName: string, email: string, password: string) => {

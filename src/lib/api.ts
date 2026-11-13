@@ -8,7 +8,12 @@ export async function apiFetch(path: string, init?: RequestInit) {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text || res.statusText);
+    let message = text || res.statusText;
+    if (res.headers.get("content-type")?.includes("application/json")) {
+      const payload = JSON.parse(text) as { detail?: unknown };
+      if (typeof payload.detail === "string") message = payload.detail;
+    }
+    throw new Error(message);
   }
   return res.json();
 }

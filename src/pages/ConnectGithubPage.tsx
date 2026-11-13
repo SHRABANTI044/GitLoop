@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ShieldCheck, FolderGit2, BrainCircuit, Lightbulb, CheckCircle2, Loader2, LogOut, Lock } from "lucide-react";
 import GithubIcon from "../components/GithubIcon";
 import Logo from "../components/Logo";
@@ -16,25 +16,37 @@ const benefits = [
 
 export default function ConnectGithubPage() {
   const navigate = useNavigate();
-  const { user, logout, refreshConnection } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user, logout } = useAuth();
   const [connecting, setConnecting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [banner, setBanner] = useState<{ type: "error" | "success"; message: string } | null>(null);
   const [cancelled, setCancelled] = useState(false);
 
-  const handleAuthorize = async (identity: { githubUserId: string; username: string; avatarUrl: string | null; email: string | null }) => {
+  useEffect(() => {
+    const error = searchParams.get("github_error");
+    if (!error) return;
+
+    setBanner({
+      type: "error",
+      message: error === "cancelled"
+        ? "GitHub authorization was cancelled. You can try again whenever you're ready."
+        : "GitHub authorization could not be completed. Please try again.",
+    });
+    setSearchParams({}, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleAuthorize = async (_identity: { githubUserId: string; username: string; avatarUrl: string | null; email: string | null }) => {
     setConnecting(true);
     try {
       const { url } = await AuthAPI.beginGithubOAuth("signup");
-      const code = new URLSearchParams(url.split("?")[1]).get("code") ?? "";
-      await AuthAPI.exchangeGithubCode({ code, identity, mode: "signup", currentUserId: user?.id ?? null });
-      await refreshConnection();
-      setShowModal(false);
-      setBanner({ type: "success", message: `GitHub account @${identity.username} connected successfully!` });
-      await new Promise((r) => setTimeout(r, 900));
-      navigate("/select-repositories", { replace: true });
+      window.location.assign(url);
     } catch (err) {
-      throw err;
+      setBanner({
+        type: "error",
+        message: err instanceof Error ? err.message : "Could not start GitHub authorization. Please try again.",
+      });
+      setShowModal(false);
     } finally {
       setConnecting(false);
     }

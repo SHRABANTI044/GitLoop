@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import {
   LayoutDashboard, FolderGit2, Bot, ListChecks, PackageSearch, BarChart3,
   AudioWaveform, Settings, LifeBuoy, User, LogOut, Menu, X, Search,
-  Bell, ChevronDown, ShieldCheck, CircleHelp,
+  Bell, ChevronDown, ShieldCheck, CircleHelp, Sparkles,
 } from "lucide-react";
 import Logo from "../Logo";
 import GithubIcon from "../GithubIcon";
@@ -14,6 +14,7 @@ import type { Activity } from "../../lib/dashboard";
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/dashboard/repositories", label: "My Repositories", icon: FolderGit2 },
+  { to: "/dashboard/analyzer", label: "AI Repository Analyzer", icon: Sparkles },
   { to: "/dashboard/assistant", label: "AI Project Assistant", icon: Bot },
   { to: "/dashboard/tasks", label: "Task Manager", icon: ListChecks },
   { to: "/dashboard/dependencies", label: "Dependency Analyzer", icon: PackageSearch },
@@ -24,6 +25,7 @@ const NAV = [
 const TITLES: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/dashboard/repositories": "My Repositories",
+  "/dashboard/analyzer": "AI Repository Analyzer",
   "/dashboard/assistant": "AI Project Assistant",
   "/dashboard/tasks": "Task Manager",
   "/dashboard/dependencies": "Dependency Analyzer",

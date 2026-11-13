@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -72,8 +73,14 @@ def me(current_user: User = Depends(get_current_user)) -> User:
 
 @router.get("/github")
 def begin_github_oauth(current_user: User = Depends(get_current_user), mode: str = "login") -> dict[str, str]:
-    if not settings.github_client_id and not settings.github_app_slug:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="GitHub OAuth is not configured")
+    if not settings.github_app_slug and not (settings.github_client_id and settings.github_client_secret):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=(
+                "GitHub OAuth is not configured. Set GITHUB_CLIENT_ID and "
+                "GITHUB_CLIENT_SECRET in backend/.env, or configure GITHUB_APP_SLUG."
+            ),
+        )
 
     state = create_oauth_state(current_user.id)
     if settings.github_app_slug:
@@ -83,14 +90,15 @@ def begin_github_oauth(current_user: User = Depends(get_current_user), mode: str
     return {"url": url, "state": state, "mode": mode}
 
 
-@router.get("/github/callback")
+@router.get("/github/callback", response_model=None)
 async def github_callback(
     code: str | None = None,
     state: str | None = None,
+    error: str | None = None,
     installation_id: str | None = None,
     setup_action: str | None = None,
     db: Session = Depends(get_db),
-) -> dict[str, object]:
+) -> dict[str, object] | RedirectResponse:
     if not state:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing GitHub OAuth state")
 
@@ -99,7 +107,19 @@ async def github_callback(
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="GitLoop user no longer exists")
 
+    frontend_url = settings.frontend_url.rstrip("/")
+    if error:
+        return RedirectResponse(
+            url=f"{frontend_url}/connect-github?github_error=cancelled",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
     if not code:
+        if not installation_id:
+            return RedirectResponse(
+                url=f"{frontend_url}/connect-github?github_error=missing_code",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
         return {
             "status": "ok",
             "user_id": user.id,
@@ -132,11 +152,7 @@ async def github_callback(
         installation_token=installation_token,
     )
 
-    return {
-        "status": "connected",
-        "user_id": user.id,
-        "github_user_id": connection.github_user_id,
-        "github_username": connection.github_username,
-        "installation_id": connection.installation_id,
-        "avatar_url": connection.avatar_url,
-    }
+    return RedirectResponse(
+        url=f"{frontend_url}/select-repositories",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
